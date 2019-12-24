@@ -1,0 +1,26 @@
+{
+  "name": "emojibase-data",
+  "version": "5.0.1",
+  "description": "Evergreen emoji datasets.",
+  "keywords": [
+    "emoji",
+    "emojibase",
+    "data",
+    "dataset",
+    "json"
+  ],
+  "repository": "https://github.com/milesj/emojibase/tree/master/packages/data",
+  "license": "MIT",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "emojibase": "*"
+  },
+  "funding": {
+    "type": "ko-fi",
+    "url": "https://ko-fi.com/milesjohnson"
+  },
+  "gitHead": "eba92fda3380dcc62eed8b358ceb6662af625e1e"
+}

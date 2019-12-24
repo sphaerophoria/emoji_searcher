@@ -1,0 +1,16 @@
+[package]
+name = "emoji_searcher"
+version = "0.1.0"
+authors = ["Mick Sayson <mick@sayson.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.104", features = ["derive"] }
+log = "0.4.8"
+serde_json = "1.0.44"
+app_dirs = "1.2.1"
+reqwest = "0.9.24"
+rmp-serde = "0.14.0"
+semver = "0.9.0"

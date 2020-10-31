@@ -4,22 +4,43 @@ use semver::Version;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::str::FromStr;
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
 const EMOJIBASE_URL: &str = "https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/data.json";
 const EMOJIBASE_PACKAGE_JSON_URL: &str =
     "https://cdn.jsdelivr.net/npm/emojibase-data@latest/package.json";
+const EMOJIBASE_SHORTCODE_DIRECTORY_URL: &str =
+    "https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/shortcodes";
+
+const SHORTCODE_SOURCES: [&str; 6] = [
+    "cldr",
+    "emojibase",
+    "emojibase-legacy",
+    "github",
+    "iamcal",
+    "joypixels"
+];
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Emoji {
     pub annotation: String, // CLDR34 localized description (primarily used for TTS)
     //pub name: String, // name according to official unicode data
     pub emoji: String,                   // actual emoji character
-    pub shortcodes: Option<Vec<String>>, // community curated shortcodes (no surrounding colons)
     pub tags: Option<Vec<String>>,       // CLDR34 keywords
     pub skins: Option<Vec<Emoji>>,       // If there are skins
+    pub hexcode: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ShortcodeType {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+pub type Shortcodes = HashMap<String, ShortcodeType>;
 
 #[derive(Serialize, Deserialize)]
 struct PackageJson {
@@ -30,6 +51,7 @@ struct PackageJson {
 pub struct EmojiDb {
     version: String,
     emojis: Vec<Emoji>,
+    shortcodes: Vec<Shortcodes>,
 }
 
 impl EmojiDb {
@@ -43,9 +65,22 @@ impl EmojiDb {
             serde_json::from_slice(local_package_json_bytes).unwrap();
         let local_data = serde_json::from_slice(local_data_bytes).unwrap();
 
+        let local_shortcodes_tar_bytes =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/shortcodes.tar"));
+
+        let mut shortcodes_archive = tar::Archive::new(local_shortcodes_tar_bytes.as_ref());
+
+        let mut shortcodes = Vec::new();
+        for entry in shortcodes_archive.entries().unwrap() {
+            let entry = entry.unwrap();
+            let shortcode_set: Shortcodes = serde_json::from_reader(entry).unwrap();
+            shortcodes.push(shortcode_set);
+        }
+
         EmojiDb {
             version: local_package_json.version,
             emojis: local_data,
+            shortcodes: shortcodes,
         }
     }
 
@@ -65,9 +100,17 @@ impl EmojiDb {
 
         let emojis = reqwest::get(EMOJIBASE_URL).and_then(|mut data| data.json::<Vec<Emoji>>())?;
 
+        let mut shortcodes = vec![];
+        for shortcode_source in &SHORTCODE_SOURCES {
+            let mut source_shortcodes_data = reqwest::get(&format!("{}/{}.json", EMOJIBASE_SHORTCODE_DIRECTORY_URL, shortcode_source))?;
+            let source_shortcodes = source_shortcodes_data.json::<Shortcodes>()?;
+            shortcodes.push(source_shortcodes);
+        }
+
         Ok(EmojiDb {
             version: online_db_version.to_string(),
             emojis,
+            shortcodes,
         })
     }
 
@@ -103,5 +146,9 @@ impl EmojiDb {
 
     pub fn version(&self) -> &str {
         &self.version
+    }
+
+    pub fn shortcodes(&self) -> &[Shortcodes] {
+        &self.shortcodes
     }
 }

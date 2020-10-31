@@ -5,6 +5,7 @@ extern crate log;
 extern crate app_dirs;
 extern crate rmp_serde;
 extern crate semver;
+extern crate tar;
 
 mod db;
 mod searcher;

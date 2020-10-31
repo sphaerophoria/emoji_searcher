@@ -1,6 +1,6 @@
 {
   "name": "emojibase-data",
-  "version": "5.0.1",
+  "version": "6.0.0",
   "description": "Evergreen emoji datasets.",
   "keywords": [
     "emoji",
@@ -18,9 +18,12 @@
   "peerDependencies": {
     "emojibase": "*"
   },
+  "devDependencies": {
+    "emojibase-regex": "^5.0.0"
+  },
   "funding": {
     "type": "ko-fi",
     "url": "https://ko-fi.com/milesjohnson"
   },
-  "gitHead": "eba92fda3380dcc62eed8b358ceb6662af625e1e"
+  "gitHead": "b55f1b4b8a3682dd10455ca9440b42749ac8e0a3"
 }

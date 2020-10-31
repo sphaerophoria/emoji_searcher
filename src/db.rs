@@ -1,10 +1,8 @@
-use reqwest;
-use rmp_serde;
 use semver::Version;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::str::FromStr;
-use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -20,27 +18,38 @@ const SHORTCODE_SOURCES: [&str; 6] = [
     "emojibase-legacy",
     "github",
     "iamcal",
-    "joypixels"
+    "joypixels",
 ];
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Emoji {
     pub annotation: String, // CLDR34 localized description (primarily used for TTS)
     //pub name: String, // name according to official unicode data
-    pub emoji: String,                   // actual emoji character
-    pub tags: Option<Vec<String>>,       // CLDR34 keywords
-    pub skins: Option<Vec<Emoji>>,       // If there are skins
+    pub emoji: String,             // actual emoji character
+    pub tags: Option<Vec<String>>, // CLDR34 keywords
+    pub skins: Option<Vec<Emoji>>, // If there are skins
     pub hexcode: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(untagged)]
-pub enum ShortcodeType {
+enum DatabaseShortcode {
     Single(String),
     Multiple(Vec<String>),
 }
 
-pub type Shortcodes = HashMap<String, ShortcodeType>;
+impl DatabaseShortcode {
+    fn into_vec(self) -> Vec<String> {
+        match self {
+            DatabaseShortcode::Single(s) => vec![s],
+            DatabaseShortcode::Multiple(v) => v,
+        }
+    }
+}
+
+type DatabaseShortcodes = HashMap<String, DatabaseShortcode>;
+
+pub type Shortcodes = HashMap<String, Vec<String>>;
 
 #[derive(Serialize, Deserialize)]
 struct PackageJson {
@@ -51,7 +60,7 @@ struct PackageJson {
 pub struct EmojiDb {
     version: String,
     emojis: Vec<Emoji>,
-    shortcodes: Vec<Shortcodes>,
+    shortcode_sets: Vec<Shortcodes>,
 }
 
 impl EmojiDb {
@@ -70,17 +79,20 @@ impl EmojiDb {
 
         let mut shortcodes_archive = tar::Archive::new(local_shortcodes_tar_bytes.as_ref());
 
-        let mut shortcodes = Vec::new();
+        let mut shortcode_sets = Vec::new();
         for entry in shortcodes_archive.entries().unwrap() {
             let entry = entry.unwrap();
-            let shortcode_set: Shortcodes = serde_json::from_reader(entry).unwrap();
-            shortcodes.push(shortcode_set);
+
+            let shortcode_set = parse_shortcode_database(entry)
+                .expect("Failed to parse internal shortcode datatbase");
+
+            shortcode_sets.push(shortcode_set);
         }
 
         EmojiDb {
             version: local_package_json.version,
             emojis: local_data,
-            shortcodes: shortcodes,
+            shortcode_sets,
         }
     }
 
@@ -100,17 +112,22 @@ impl EmojiDb {
 
         let emojis = reqwest::get(EMOJIBASE_URL).and_then(|mut data| data.json::<Vec<Emoji>>())?;
 
-        let mut shortcodes = vec![];
+        let mut shortcode_sets = Vec::new();
         for shortcode_source in &SHORTCODE_SOURCES {
-            let mut source_shortcodes_data = reqwest::get(&format!("{}/{}.json", EMOJIBASE_SHORTCODE_DIRECTORY_URL, shortcode_source))?;
-            let source_shortcodes = source_shortcodes_data.json::<Shortcodes>()?;
-            shortcodes.push(source_shortcodes);
+            let shortcode_set_data = reqwest::get(&format!(
+                "{}/{}.json",
+                EMOJIBASE_SHORTCODE_DIRECTORY_URL, shortcode_source
+            ))?;
+
+            let shortcode_set = parse_shortcode_database(shortcode_set_data)?;
+
+            shortcode_sets.push(shortcode_set);
         }
 
         Ok(EmojiDb {
             version: online_db_version.to_string(),
             emojis,
-            shortcodes,
+            shortcode_sets,
         })
     }
 
@@ -148,7 +165,24 @@ impl EmojiDb {
         &self.version
     }
 
-    pub fn shortcodes(&self) -> &[Shortcodes] {
-        &self.shortcodes
+    pub fn shortcode_sets(&self) -> &[Shortcodes] {
+        &self.shortcode_sets
     }
+}
+
+impl Default for EmojiDb {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn parse_shortcode_database<R: Read>(source: R) -> Result<Shortcodes, Box<dyn Error>> {
+    let database_shortcode_set: DatabaseShortcodes = serde_json::from_reader(source)?;
+
+    let shortcode_set = database_shortcode_set
+        .into_iter()
+        .map(|(k, v)| (k, v.into_vec()))
+        .collect();
+
+    Ok(shortcode_set)
 }

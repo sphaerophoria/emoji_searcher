@@ -1,4 +1,4 @@
-use super::db::{Emoji, Shortcodes, ShortcodeType, EmojiDb};
+use super::db::{Emoji, EmojiDb, Shortcodes};
 use std::rc::Rc;
 
 pub struct EmojiSearcher {
@@ -17,10 +17,10 @@ impl EmojiSearcher {
 
     // FIXME: Sort based on some form of score
     pub fn search(&self, search: String) -> impl Iterator<Item = SearchResult> {
-        let shortcodes = self.db.shortcodes();
+        let shortcode_sets = self.db.shortcode_sets();
 
         self.db.emojis().filter_map(move |emoji| {
-            emoji_contains_search(emoji, shortcodes, &search).map(|x| SearchResult {
+            emoji_contains_search(emoji, shortcode_sets, &search).map(|x| SearchResult {
                 emoji: &emoji.emoji,
                 matched_tag: x,
             })
@@ -32,20 +32,17 @@ impl EmojiSearcher {
     }
 }
 
-fn emoji_contains_search<'a>(emoji: &'a Emoji, shortcodes: &'a [Shortcodes], search: &str) -> Option<&'a String> {
-    for shortcode_list in shortcodes {
-        let shortcode = shortcode_list.get(&emoji.hexcode);
+fn emoji_contains_search<'a>(
+    emoji: &'a Emoji,
+    shortcode_sets: &'a [Shortcodes],
+    search: &str,
+) -> Option<&'a String> {
+    for shortcode_set in shortcode_sets {
+        let shortcode = shortcode_set.get(&emoji.hexcode);
         let matched_shortcode = match shortcode {
-            Some(ShortcodeType::Single(s)) => {
-                if s.contains(search) {
-                    Some(s)
-                } else {
-                    None
-                }
-            },
-            Some(ShortcodeType::Multiple(shortcodes)) => {
-                shortcodes.iter().find(|shortcode| shortcode.contains(search))
-            }
+            Some(shortcodes) => shortcodes
+                .iter()
+                .find(|shortcode| shortcode.contains(search)),
             _ => None,
         };
 

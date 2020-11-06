@@ -56,6 +56,7 @@ struct PackageJson {
     version: String,
 }
 
+/// An emoji database
 #[derive(Serialize, Deserialize)]
 pub struct EmojiDb {
     version: String,
@@ -64,6 +65,7 @@ pub struct EmojiDb {
 }
 
 impl EmojiDb {
+    /// Generates a new EmojiDb based off the database embedded in the library
     pub fn new() -> EmojiDb {
         let local_data_bytes =
             include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/data.json"));
@@ -96,8 +98,9 @@ impl EmojiDb {
         }
     }
 
-    // FIXME: test logic here
+    /// Generates an EmojiDb that was saved to the given cache
     pub fn from_cache<T: Read>(cache: &mut T) -> Result<EmojiDb, Box<dyn Error>> {
+        // FIXME: test logic here
         Ok(rmp_serde::decode::from_read(cache)?)
     }
 
@@ -107,6 +110,7 @@ impl EmojiDb {
         Ok(Version::from_str(&package_json.version)?)
     }
 
+    /// Generates a new EmojiDb based off data from the online repository maintained by the [Emojibase project](https://github.com/milesj/emojibase)
     pub fn from_web() -> Result<EmojiDb, Box<dyn Error>> {
         let online_db_version = Self::get_online_version()?;
 
@@ -131,12 +135,14 @@ impl EmojiDb {
         })
     }
 
-    // FIXME: test save/read logic
+    /// Saves the existing EmojiDb the provided cache
     pub fn save<T: Write>(&self, cache: &mut T) -> Result<(), Box<dyn Error>> {
+        // FIXME: test save/read logic
         rmp_serde::encode::write(cache, self)?;
         Ok(())
     }
 
+    /// Checks if a new version of the [Emojibase project](https://github.com/milesj/emojibase) is available
     pub fn needs_update(&self) -> bool {
         let current_db_version = match Version::from_str(&self.version) {
             Ok(x) => x,
@@ -157,14 +163,17 @@ impl EmojiDb {
         current_db_version < online_db_version
     }
 
+    /// Retrieves an iterator over all emojis in the db
     pub fn emojis(&self) -> impl Iterator<Item = &Emoji> {
         self.emojis.iter()
     }
 
+    /// Retrieves the corresponding [Emojibase](https://github.com/milesj/emojibase) version
     pub fn version(&self) -> &str {
         &self.version
     }
 
+    /// Retrieves all shortcodes
     pub fn shortcode_sets(&self) -> &[Shortcodes] {
         &self.shortcode_sets
     }

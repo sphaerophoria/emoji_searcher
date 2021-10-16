@@ -23,7 +23,7 @@ const SHORTCODE_SOURCES: [&str; 6] = [
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Emoji {
-    pub annotation: String, // CLDR34 localized description (primarily used for TTS)
+    pub label: String, // CLDR34 localized description (primarily used for TTS)
     //pub name: String, // name according to official unicode data
     pub emoji: String,             // actual emoji character
     pub tags: Option<Vec<String>>, // CLDR34 keywords
